@@ -1,0 +1,18 @@
+# VALORANT Semantic Layer - Python Dependencies
+
+# Core data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# YAML parsing for metric definitions
+pyyaml>=6.0
+
+# Optional: For production deployment
+# requests>=2.31.0  # For GRID API calls
+# python-dotenv>=1.0.0  # For environment variables
+# anthropic>=0.18.0  # For Claude API integration
+
+# Optional: For advanced features
+# sqlalchemy>=2.0.0  # For database storage
+# fastapi>=0.109.0  # For API endpoints
+# uvicorn>=0.27.0  # For API server

@@ -1,0 +1,181 @@
+# VALORANT Semantic Layer - Metric Definitions
+# This file defines the tactical concepts that get applied to raw GRID data
+
+metrics:
+  # ============================================================================
+  # SITUATIONAL METRICS - Player counts, advantages, clutch scenarios
+  # ============================================================================
+  
+  - name: "Clutch_Situations"
+    type: "situational"
+    description: "Tracks player advantage states and 1vX clutch scenarios"
+    logic: |
+      At each event, calculate:
+      - players_alive_team (your team's remaining players)
+      - players_alive_enemy (opponent's remaining players)
+      - player_advantage (team_alive - enemy_alive)
+      - situation_type (Even, Advantage +N, Disadvantage -N, Clutch 1vX)
+    outputs:
+      - players_alive_team
+      - players_alive_enemy
+      - player_advantage
+      - situation_type
+    
+  # ============================================================================
+  # SPATIAL METRICS - Zone control, positioning
+  # ============================================================================
+  
+  - name: "Market_Defense_(Ascent)"
+    type: "spatial"
+    map: "Ascent"
+    description: "Identifies when players are defending from Market structure"
+    bounds:
+      x_min: 500
+      x_max: 800
+      y_min: 1200
+      y_max: 1500
+    outputs:
+      - in_zone_market_defense_(ascent)
+      - distance_to_market_defense_(ascent)
+    notes: |
+      Market is a key control point on Ascent A-site.
+      Coordinates approximate - may need calibration with actual map data.
+  
+  # ============================================================================
+  # TEMPORAL METRICS - Trade kills, time-based sequences
+  # ============================================================================
+  
+  - name: "Trade_Efficiency"
+    type: "temporal"
+    description: "Identifies successful trading kills after teammate deaths"
+    logic: |
+      A kill is classified as a "trade" if:
+      1. A teammate died within the last 3.0 seconds
+      2. The kill occurred within 15 meters of the teammate's death location
+    parameters:
+      time_window: 3.0  # seconds
+      distance_threshold: 15.0  # meters
+    outputs:
+      - is_trade_kill
+      - time_since_teammate_death
+      - distance_to_teammate_death
+    notes: |
+      Trading is critical in VALORANT - getting value from teammate deaths
+      prevents the enemy from gaining numerical advantage.
+
+  # ============================================================================
+  # COMPOSITE METRICS - Multi-condition patterns
+  # ============================================================================
+  
+  - name: "Exit_Frag"
+    type: "composite"
+    description: "Meaningless kills after round is effectively lost"
+    conditions:
+      round_result: "loss"
+      time_remaining: "< 10"  # Last 10 seconds
+      got_kill: true
+    notes: |
+      Exit frags inflate KDA but don't contribute to winning.
+      Important to filter these out when evaluating true impact.
+  
+  - name: "Pistol_Round_Throw"
+    type: "composite"
+    description: "Losing pistol rounds despite player advantage"
+    conditions:
+      round_number: [1, 13]  # Pistol rounds (start of each half)
+      team_advantage: "> 1"  # Had more players alive
+      result: "loss"
+    notes: |
+      Pistol rounds are critical for economy.
+      Losing them with advantage indicates strategic errors.
+  
+  - name: "Match_Point_Round"
+    type: "composite"
+    description: "Rounds that could win or lose the match"
+    conditions:
+      # One team is at 12 rounds (1 win away from victory)
+      team_score: 12
+    notes: |
+      High-pressure moments where mental game is critical.
+      Performance in these rounds reveals clutch factor.
+
+  # ============================================================================
+  # COMMUNITY-CONTRIBUTED METRICS (Examples)
+  # ============================================================================
+  
+  - name: "Icebox_A_Site_Lurk"
+    type: "spatial_temporal"
+    author: "FaZe Coach"
+    map: "Icebox"
+    description: "Solo player holding A-site in late round"
+    bounds:
+      x_min: 300
+      x_max: 600
+      y_min: 900
+      y_max: 1200
+    additional_conditions:
+      time_window: "last_30_seconds"
+      team_count_in_zone: "< 2"  # Player is alone or with 1 teammate
+    status: "community"
+    downloads: 342
+  
+  - name: "Haven_Garage_Control"
+    type: "spatial_temporal"
+    author: "Sentinels Analyst"
+    map: "Haven"
+    description: "Early round garage control and win correlation"
+    bounds:
+      x_min: 400
+      x_max: 700
+      y_min: 800
+      y_max: 1100
+    additional_conditions:
+      time_window: "first_45_seconds"
+      control_gained: true
+    status: "community"
+    downloads: 218
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+config:
+  version: "1.0.0"
+  grid_api_version: "2024"
+  coordinate_system: "normalized"  # GRID uses normalized coordinates
+  distance_unit: "meters"  # All distances in meters
+  time_unit: "seconds"  # All times in seconds
+  
+  # Performance settings
+  cache_enriched_data: true
+  parallel_processing: false  # Set true for large datasets
+  
+  # Output settings
+  export_format: "csv"
+  include_raw_data: true
+  verbose_logging: true
+
+# ============================================================================
+# NOTES FOR HACKATHON JUDGES
+# ============================================================================
+
+notes: |
+  This YAML file is the "Query Builder" backend.
+  
+  Instead of hardcoding every possible statistic, we define tactical concepts
+  that can be applied to any match data from the GRID API.
+  
+  Key Innovation:
+  - Coaches think in terms of "Market Defense" and "Trading"
+  - APIs provide x/y coordinates and timestamps
+  - This semantic layer bridges the gap
+  
+  Extensibility:
+  - New metrics can be added without changing code
+  - Community can share and refine definitions
+  - Teams can customize thresholds for their playstyle
+  
+  Production Vision:
+  - Metrics automatically applied to new matches
+  - Real-time enrichment as games are played
+  - LLM queries against enriched data, not raw API
